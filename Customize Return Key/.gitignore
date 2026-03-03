@@ -1,0 +1,10 @@
+# Local build output
+DerivedData/
+
+# macOS finder metadata
+.DS_Store
+
+# Keep backup metadata, skip heavy backup payloads
+backups/*/IMEFix.app/
+backups/*/IMEFix-source/
+backups/*/IMEFix.xcodeproj/
