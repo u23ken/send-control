@@ -7,20 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A0000000000000000000001B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001A /* main.swift */; };
-		A0000000000000000000000C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000006 /* AppDelegate.swift */; };
-		A0000000000000000000000D /* EventTapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* EventTapManager.swift */; };
-		A0000000000000000000000E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000009 /* AppKit.framework */; };
-		A0000000000000000000000F /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000A /* ApplicationServices.framework */; };
+			A0000000000000000000001B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001A /* main.swift */; };
+			A00000000000000000000020 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001F /* AppIcon.icns */; };
+			A00000000000000000000021 /* MenuBarIconTemplate.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* MenuBarIconTemplate.png */; };
+			A0000000000000000000001E /* SendControlLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001C /* SendControlLog.swift */; };
+			A0000000000000000000000C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000006 /* AppDelegate.swift */; };
+			A0000000000000000000000D /* EventTapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* EventTapManager.swift */; };
+			A0000000000000000000000E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000009 /* AppKit.framework */; };
+			A0000000000000000000000F /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000A /* ApplicationServices.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A00000000000000000000005 /* IMEFix.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IMEFix.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A0000000000000000000001A /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		A00000000000000000000006 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		A00000000000000000000007 /* EventTapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventTapManager.swift; sourceTree = "<group>"; };
-		A00000000000000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A00000000000000000000009 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+			A00000000000000000000005 /* Send Control.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Send Control.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+			A0000000000000000000001A /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+			A0000000000000000000001C /* SendControlLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendControlLog.swift; sourceTree = "<group>"; };
+			A0000000000000000000001D /* SendControl.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SendControl.entitlements; sourceTree = "<group>"; };
+			A0000000000000000000001F /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+			A00000000000000000000022 /* MenuBarIconTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MenuBarIconTemplate.png; sourceTree = "<group>"; };
+			A00000000000000000000006 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+			A00000000000000000000007 /* EventTapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventTapManager.swift; sourceTree = "<group>"; };
+			A00000000000000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+			A00000000000000000000009 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		A0000000000000000000000A /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -49,21 +56,25 @@
 		A00000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A00000000000000000000005 /* IMEFix.app */,
+				A00000000000000000000005 /* Send Control.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A0000000000000000000000B /* IMEFix */ = {
-			isa = PBXGroup;
-			children = (
-				A0000000000000000000001A /* main.swift */,
-				A00000000000000000000006 /* AppDelegate.swift */,
-				A00000000000000000000007 /* EventTapManager.swift */,
-				A00000000000000000000008 /* Info.plist */,
-			);
-			path = IMEFix;
-			sourceTree = "<group>";
+			A0000000000000000000000B /* IMEFix */ = {
+				isa = PBXGroup;
+				children = (
+					A0000000000000000000001A /* main.swift */,
+					A00000000000000000000006 /* AppDelegate.swift */,
+					A00000000000000000000007 /* EventTapManager.swift */,
+					A0000000000000000000001C /* SendControlLog.swift */,
+					A0000000000000000000001D /* SendControl.entitlements */,
+					A0000000000000000000001F /* AppIcon.icns */,
+					A00000000000000000000022 /* MenuBarIconTemplate.png */,
+					A00000000000000000000008 /* Info.plist */,
+				);
+				path = IMEFix;
+				sourceTree = "<group>";
 		};
 		A00000000000000000000019 /* Frameworks */ = {
 			isa = PBXGroup;
@@ -90,8 +101,8 @@
 			dependencies = (
 			);
 			name = IMEFix;
-			productName = IMEFix;
-			productReference = A00000000000000000000005 /* IMEFix.app */;
+			productName = "Send Control";
+			productReference = A00000000000000000000005 /* Send Control.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -128,26 +139,29 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A00000000000000000000012 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+			A00000000000000000000012 /* Resources */ = {
+				isa = PBXResourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+					A00000000000000000000020 /* AppIcon.icns in Resources */,
+					A00000000000000000000021 /* MenuBarIconTemplate.png in Resources */,
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A00000000000000000000010 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A0000000000000000000001B /* main.swift in Sources */,
-				A0000000000000000000000C /* AppDelegate.swift in Sources */,
-				A0000000000000000000000D /* EventTapManager.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+			A00000000000000000000010 /* Sources */ = {
+				isa = PBXSourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+					A0000000000000000000001B /* main.swift in Sources */,
+					A0000000000000000000001E /* SendControlLog.swift in Sources */,
+					A0000000000000000000000C /* AppDelegate.swift in Sources */,
+					A0000000000000000000000D /* EventTapManager.swift in Sources */,
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -180,45 +194,49 @@
 			};
 			name = Release;
 		};
-		A00000000000000000000017 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGNING_ALLOWED = YES;
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = IMEFix/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
+			A00000000000000000000017 /* Debug */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					CODE_SIGN_ENTITLEMENTS = IMEFix/SendControl.entitlements;
+					CODE_SIGN_IDENTITY = "-";
+					CODE_SIGNING_ALLOWED = YES;
+					CODE_SIGN_STYLE = Manual;
+					CURRENT_PROJECT_VERSION = 1;
+					ENABLE_HARDENED_RUNTIME = YES;
+					GENERATE_INFOPLIST_FILE = NO;
+					INFOPLIST_FILE = IMEFix/Info.plist;
+					LD_RUNPATH_SEARCH_PATHS = (
+						"$(inherited)",
+						"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.IMEFix;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.sendcontrol.app;
+				PRODUCT_NAME = "Send Control";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
-		A00000000000000000000018 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGNING_ALLOWED = YES;
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = IMEFix/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
+			A00000000000000000000018 /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					CODE_SIGN_ENTITLEMENTS = IMEFix/SendControl.entitlements;
+					CODE_SIGN_IDENTITY = "-";
+					CODE_SIGNING_ALLOWED = YES;
+					CODE_SIGN_STYLE = Manual;
+					CURRENT_PROJECT_VERSION = 1;
+					ENABLE_HARDENED_RUNTIME = YES;
+					GENERATE_INFOPLIST_FILE = NO;
+					INFOPLIST_FILE = IMEFix/Info.plist;
+					LD_RUNPATH_SEARCH_PATHS = (
+						"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.IMEFix;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.sendcontrol.app;
+				PRODUCT_NAME = "Send Control";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;

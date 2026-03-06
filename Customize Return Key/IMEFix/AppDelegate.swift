@@ -1,28 +1,37 @@
 import AppKit
-import CoreServices
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTapManager = EventTapManager()
-    private let logPrefix = "[IMEFix]"
+    private let canonicalInstallPath = "/Applications/Send Control.app"
     private let tapStartRetryDelay: TimeInterval = 1.0
     private let maxTapStartRetries = 5
+    private let healthCheckInterval: TimeInterval = 5.0
+    private let minAutoRestartInterval: TimeInterval = 10.0
+    private let desiredProtectionDefaultsKey = "SendControlDesiredProtectionEnabled"
     private var tapStartRetryCount = 0
     private var pendingRetryWorkItem: DispatchWorkItem?
-    private var newestBuildURL: URL?
-    private var isRunningOutdatedBuild = false
+    private var healthCheckTimer: Timer?
+    private var lastAutoRestartAttemptAt = Date.distantPast
+    private var missingAccessibilityPermission = false
+    private var missingInputMonitoringPermission = false
+    private var lastLoggedPermissionSignature = ""
+    private var startPromptForPermissions = false
+    private var startOpenSettingsOnFailure = false
+    private var desiredProtectionEnabled = true
 
     private var statusItem: NSStatusItem!
-    private let statusMenuItem = NSMenuItem(title: "IMEFix: OFF", action: nil, keyEquivalent: "")
-    private let runningPathMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private lazy var toggleMenuItem: NSMenuItem = {
-        let item = NSMenuItem(title: "Turn ON", action: #selector(toggleIMEFix), keyEquivalent: "")
-        item.target = self
-        return item
+    private let headerMenuItem = NSMenuItem()
+    private lazy var headerView: ProtectionHeaderMenuView = {
+        let view = ProtectionHeaderMenuView(frame: NSRect(x: 0, y: 0, width: 320, height: 36))
+        view.onToggle = { [weak self] isOn in
+            self?.setProtectionEnabled(isOn, trigger: "header-switch", userInitiated: true)
+        }
+        return view
     }()
-    private lazy var useNewestBuildMenuItem: NSMenuItem = {
-        let item = NSMenuItem(title: "Use Newest Build", action: #selector(switchToNewestBuild), keyEquivalent: "")
+    private lazy var quitMenuItem: NSMenuItem = {
+        let item = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
+        item.keyEquivalentModifierMask = [.command]
         item.target = self
-        item.isHidden = true
         return item
     }()
 
@@ -31,99 +40,142 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("\(logPrefix) App launched.")
+        SendControlLog.appInfo("App launched.")
+        SendControlLog.appInfo("Bundle: \(Bundle.main.bundleIdentifier ?? "unknown"), path: \(Bundle.main.bundleURL.path)")
+        guard enforceCanonicalInstallLocation() else {
+            return
+        }
+        guard enforceSingleRunningInstance() else {
+            return
+        }
+
         setupMenuBar()
+        loadDesiredProtectionState()
+
+        eventTapManager.shouldRemapBundleID = { [weak self] bundleID in
+            self?.shouldProtect(bundleID: bundleID) ?? false
+        }
         eventTapManager.onStateChanged = { [weak self] enabled in
-            print("[IMEFix] Event tap state changed: \(enabled ? "ON" : "OFF")")
-            self?.isEnabled = enabled
+            DispatchQueue.main.async {
+                SendControlLog.appInfo("Event tap state changed: \(enabled ? "ON" : "OFF").")
+                self?.isEnabled = enabled
+            }
         }
 
-        refreshBuildSelection()
-        if isRunningOutdatedBuild {
-            print("\(logPrefix) Outdated build detected at \(Bundle.main.bundleURL.path). Attempting to launch newer build.")
-            switchToNewestBuild()
-            return
-        }
+        _ = refreshPermissionState(prompt: false)
+        startHealthCheckTimer()
 
-        // Try to start directly; relying only on preflight checks can cause false negatives.
-        startEventTapWithRetry(trigger: "launch")
-    }
-
-    @objc private func toggleIMEFix() {
-        refreshBuildSelection()
-        if isRunningOutdatedBuild {
-            print("\(logPrefix) Refusing to toggle old build. Switching to newest build first.")
-            switchToNewestBuild()
-            return
-        }
-
-        if isEnabled {
-            cancelPendingTapRetry()
+        if desiredProtectionEnabled {
+            if missingAccessibilityPermission || missingInputMonitoringPermission {
+                SendControlLog.appWarning("Launch auto-start skipped because permissions are missing. Waiting for user to grant permission.")
+                isEnabled = false
+                updateMenuState()
+            } else {
+                SendControlLog.appInfo("Auto-starting event tap on launch.")
+                startEventTapWithRetry(
+                    trigger: "launch-auto",
+                    promptForPermissions: false,
+                    openSettingsOnFailure: false
+                )
+            }
+        } else {
+            SendControlLog.appInfo("Protection is OFF by saved preference.")
             eventTapManager.stop()
             isEnabled = false
-            print("\(logPrefix) Event tap manually turned OFF.")
-            return
+            updateMenuState()
+        }
+    }
+
+    @discardableResult
+    private func enforceCanonicalInstallLocation() -> Bool {
+        let currentURL = Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL
+        let canonicalURL = URL(fileURLWithPath: canonicalInstallPath, isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+
+        guard currentURL.path != canonicalURL.path else {
+            return true
         }
 
-        startEventTapWithRetry(trigger: "menu-toggle")
+        guard FileManager.default.fileExists(atPath: canonicalURL.path) else {
+            SendControlLog.appWarning(
+                "Running from non-canonical path because canonical app is missing: \(currentURL.path)"
+            )
+            return true
+        }
+
+        SendControlLog.appWarning(
+            "Non-canonical launch detected: \(currentURL.path). Redirecting to \(canonicalURL.path)."
+        )
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: canonicalURL, configuration: configuration) { _, error in
+            if let error {
+                SendControlLog.appError("Failed to launch canonical app: \(error.localizedDescription)")
+            }
+            NSApp.terminate(nil)
+        }
+        return false
     }
 
     @objc private func quitApp() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = nil
         cancelPendingTapRetry()
+        eventTapManager.stop()
         NSApp.terminate(nil)
     }
 
-    @objc private func switchToNewestBuild() {
-        refreshBuildSelection()
-        guard let newestBuildURL else {
-            print("\(logPrefix) No newer build candidate found.")
-            return
-        }
-
-        let currentURL = normalizeAppURL(Bundle.main.bundleURL.path)
-        guard newestBuildURL.path != currentURL.path else {
-            print("\(logPrefix) Current build is already the newest build.")
-            return
-        }
-
-        let config = NSWorkspace.OpenConfiguration()
-        config.activates = true
-        NSWorkspace.shared.openApplication(at: newestBuildURL, configuration: config) { [weak self] _, error in
-            if let error {
-                print("[IMEFix] Failed to launch newer build: \(error.localizedDescription)")
-                self?.refreshBuildSelection()
-                self?.updateMenuState()
-                return
-            }
-
-            print("[IMEFix] Launched newer build at \(newestBuildURL.path). Terminating current build.")
-            NSApp.terminate(nil)
-        }
-    }
-
-    private func startEventTapWithRetry(trigger: String) {
+    private func startEventTapWithRetry(
+        trigger: String,
+        promptForPermissions: Bool,
+        openSettingsOnFailure: Bool
+    ) {
+        startPromptForPermissions = promptForPermissions
+        startOpenSettingsOnFailure = openSettingsOnFailure
         cancelPendingTapRetry()
+        let hasPermissions = refreshPermissionState(prompt: promptForPermissions)
+        if !hasPermissions {
+            SendControlLog.appWarning(
+                "Permissions appear missing before start (\(trigger)); attempting event tap start anyway."
+            )
+        }
+
         tapStartRetryCount = 0
         attemptStartEventTap(trigger: trigger)
     }
 
     private func attemptStartEventTap(trigger: String) {
-        let attempt = tapStartRetryCount + 1
-        print("\(logPrefix) Starting event tap (trigger: \(trigger), attempt: \(attempt)/\(maxTapStartRetries + 1)).")
-        eventTapManager.start()
+        guard desiredProtectionEnabled else {
+            SendControlLog.appDebug("Skipping start attempt because protection is OFF.")
+            return
+        }
 
-        if eventTapManager.isRunning {
-            print("\(logPrefix) Event tap started successfully.")
+        let attempt = tapStartRetryCount + 1
+        SendControlLog.appInfo("Starting event tap (trigger: \(trigger), attempt: \(attempt)/\(maxTapStartRetries + 1)).")
+        // Recreate the tap each attempt to avoid stale tap state after OFF -> ON toggles.
+        eventTapManager.restartTap()
+
+        if eventTapManager.isRunning && eventTapManager.isTapEnabledBySystem {
+            SendControlLog.appInfo("Event tap started successfully.")
             isEnabled = true
             cancelPendingTapRetry()
             return
         }
 
         guard tapStartRetryCount < maxTapStartRetries else {
-            print("\(logPrefix) Event tap start failed after retries.")
-            _ = eventTapManager.hasAccessibilityPermission(prompt: true)
-            openAccessibilityPrivacySettings()
+            SendControlLog.appError("Event tap start failed after retries.")
+            let hasPermissions = refreshPermissionState(prompt: startPromptForPermissions)
+            if startOpenSettingsOnFailure {
+                openMissingPermissionSettings()
+            }
+            if !hasPermissions {
+                SendControlLog.appWarning("Event tap remains OFF because required permissions are not granted.")
+            }
+            eventTapManager.stop()
             isEnabled = false
+            updateMenuState()
             return
         }
 
@@ -132,7 +184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.attemptStartEventTap(trigger: trigger)
         }
         pendingRetryWorkItem = workItem
-        print("\(logPrefix) Scheduling retry in \(tapStartRetryDelay)s.")
+        SendControlLog.appDebug("Scheduling retry in \(tapStartRetryDelay)s.")
         DispatchQueue.main.asyncAfter(deadline: .now() + tapStartRetryDelay, execute: workItem)
     }
 
@@ -144,115 +196,125 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.title = "IMEFix"
+        configureStatusBarIcon()
 
         let menu = NSMenu()
-        statusMenuItem.isEnabled = false
-        runningPathMenuItem.isEnabled = false
-        menu.addItem(statusMenuItem)
-        menu.addItem(toggleMenuItem)
-        menu.addItem(runningPathMenuItem)
-        menu.addItem(useNewestBuildMenuItem)
-        menu.addItem(NSMenuItem.separator())
+        menu.autoenablesItems = false
 
-        let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
+        headerMenuItem.view = headerView
+        menu.addItem(headerMenuItem)
+
+        let headerSeparator = NSMenuItem.separator()
+        menu.addItem(headerSeparator)
+        menu.addItem(quitMenuItem)
 
         statusItem.menu = menu
         updateMenuState()
     }
 
     private func updateMenuState() {
-        refreshBuildSelection()
+        let permissionsMissing = missingAccessibilityPermission || missingInputMonitoringPermission
 
-        if isRunningOutdatedBuild {
-            statusMenuItem.title = "⚠️ Running old build"
-            toggleMenuItem.title = "Turn ON"
-            useNewestBuildMenuItem.isHidden = false
-            useNewestBuildMenuItem.title = "Use Newest Build"
+        headerView.updateState(isOn: isEnabled)
+        updateStatusIconAppearance()
+
+        if permissionsMissing && !isEnabled {
+            statusItem.button?.toolTip = "Send Control: OFF (Permission required)"
+        } else {
+            statusItem.button?.toolTip = isEnabled ? "Send Control: ON" : "Send Control: OFF"
+        }
+    }
+
+    private func updateStatusIconAppearance() {
+        guard let button = statusItem.button else {
             return
         }
 
-        statusMenuItem.title = "IMEFix: \(isEnabled ? "ON" : "OFF")"
-        toggleMenuItem.title = isEnabled ? "Turn OFF" : "Turn ON"
-        useNewestBuildMenuItem.isHidden = true
+        // Dim the menu bar icon when protection is OFF.
+        button.alphaValue = isEnabled ? 1.0 : 0.45
     }
 
-    private func refreshBuildSelection() {
-        let currentURL = normalizeAppURL(Bundle.main.bundleURL.path)
-        runningPathMenuItem.title = "Running: \(currentURL.path)"
+    private func setProtectionEnabled(_ enabled: Bool, trigger: String, userInitiated: Bool) {
+        if !enabled {
+            desiredProtectionEnabled = false
+            saveDesiredProtectionState()
+            cancelPendingTapRetry()
+            eventTapManager.stop()
+            isEnabled = false
+            SendControlLog.appInfo("Event tap manually turned OFF.")
+            return
+        }
 
-        var candidateURLs = [currentURL]
-        let applicationsURL = normalizeAppURL("/Applications/IMEFix.app")
-        let userApplicationsURL = normalizeAppURL("\(NSHomeDirectory())/Applications/IMEFix.app")
-        let preferredInstallPaths = Set([applicationsURL.path, userApplicationsURL.path, currentURL.path])
+        desiredProtectionEnabled = true
+        saveDesiredProtectionState()
 
-        if let bundleIdentifier = Bundle.main.bundleIdentifier {
-            let registered = registeredAppURLs(for: bundleIdentifier).filter { preferredInstallPaths.contains($0.path) }
-            if !registered.isEmpty {
-                let list = registered.map { $0.path }.joined(separator: ", ")
-                print("\(logPrefix) LaunchServices candidates: \(list)")
+        if userInitiated {
+            // Avoid repeated macOS permission prompt loops.
+            let hasPermissions = refreshPermissionState(prompt: false)
+            if !hasPermissions {
+                openMissingPermissionSettings()
+                SendControlLog.appWarning("Cannot turn ON yet because required permissions are missing.")
+                isEnabled = false
+                updateMenuState()
+                return
             }
-            candidateURLs.append(contentsOf: registered)
         }
 
-        // Only treat installed app locations as upgrade candidates.
-        let candidatePaths = [
-            applicationsURL.path,
-            userApplicationsURL.path
-        ]
-        candidateURLs.append(contentsOf: candidatePaths.map(normalizeAppURL))
-
-        var uniquePaths = Set<String>()
-        let candidates = candidateURLs.compactMap { appURL -> URL? in
-            let normalized = normalizeAppURL(appURL.path)
-            guard FileManager.default.fileExists(atPath: normalized.path) else {
-                return nil
-            }
-            guard uniquePaths.insert(normalized.path).inserted else {
-                return nil
-            }
-            guard isSelfBundleIdentifier(at: normalized) else {
-                return nil
-            }
-            return normalized
-        }
-
-        let sortedCandidates = candidates.sorted {
-            modificationDate(for: $0) > modificationDate(for: $1)
-        }
-        if !sortedCandidates.isEmpty {
-            let list = sortedCandidates
-                .map { "\($0.path) @ \(modificationDate(for: $0))" }
-                .joined(separator: " | ")
-            print("\(logPrefix) Resolved build candidates: \(list)")
-        }
-
-        let newest = candidates.max { lhs, rhs in
-            modificationDate(for: lhs) < modificationDate(for: rhs)
-        }
-        newestBuildURL = newest
-        isRunningOutdatedBuild = newest?.path != currentURL.path
+        startEventTapWithRetry(
+            trigger: trigger,
+            promptForPermissions: false,
+            openSettingsOnFailure: false
+        )
     }
 
-    private func modificationDate(for appURL: URL) -> Date {
-        let executableURL = appURL.appendingPathComponent("Contents/MacOS/IMEFix")
-        if let values = try? executableURL.resourceValues(forKeys: [.contentModificationDateKey]),
-           let date = values.contentModificationDate {
-            return date
+    private func configureStatusBarIcon() {
+        guard let button = statusItem.button else {
+            return
         }
 
-        if let values = try? appURL.resourceValues(forKeys: [.contentModificationDateKey]),
-           let date = values.contentModificationDate {
-            return date
-        }
-
-        return .distantPast
+        let icon = makeCustomStatusIcon()
+        icon.isTemplate = true
+        button.image = icon
+        button.imagePosition = .imageOnly
+        button.title = ""
+        button.toolTip = "Send Control"
     }
 
-    private func normalizeAppURL(_ path: String) -> URL {
-        URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+    private func makeCustomStatusIcon() -> NSImage {
+        if let url = Bundle.main.url(forResource: "MenuBarIconTemplate", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            // Keep the provided 32x32 template icon crisp by displaying at 16pt.
+            image.size = NSSize(width: 16, height: 16)
+            return image
+        }
+
+        SendControlLog.appWarning("Menu bar icon asset not found. Using fallback vector icon.")
+        let size = NSSize(width: 18, height: 18)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        NSColor.labelColor.setFill()
+
+        let keyBody = NSBezierPath(roundedRect: NSRect(x: 6.4, y: 1.4, width: 9.2, height: 15.1), xRadius: 1.4, yRadius: 1.4)
+        keyBody.fill()
+
+        let keyTab = NSBezierPath(roundedRect: NSRect(x: 2.3, y: 11.3, width: 5.4, height: 5.0), xRadius: 0.9, yRadius: 0.9)
+        keyTab.fill()
+
+        return image
+    }
+
+    private func shouldProtect(bundleID: String) -> Bool {
+        guard !bundleID.isEmpty else {
+            return false
+        }
+
+        if bundleID == Bundle.main.bundleIdentifier {
+            return false
+        }
+
+        return true
     }
 
     private func openAccessibilityPrivacySettings() {
@@ -262,29 +324,206 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.open(url)
     }
 
-    private func registeredAppURLs(for bundleIdentifier: String) -> [URL] {
-        guard let unmanaged = LSCopyApplicationURLsForBundleIdentifier(bundleIdentifier as CFString, nil) else {
-            return []
+    private func openInputMonitoringPrivacySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") else {
+            return
         }
-
-        let rawArray = unmanaged.takeRetainedValue() as NSArray
-        return rawArray.compactMap { item in
-            guard let url = item as? URL else {
-                return nil
-            }
-            return normalizeAppURL(url.path)
-        }
+        NSWorkspace.shared.open(url)
     }
 
-    private func isSelfBundleIdentifier(at appURL: URL) -> Bool {
-        guard let mainBundleID = Bundle.main.bundleIdentifier else {
+    private func openMissingPermissionSettings() {
+        if missingAccessibilityPermission {
+            openAccessibilityPrivacySettings()
+            return
+        }
+
+        if missingInputMonitoringPermission {
+            openInputMonitoringPrivacySettings()
+            return
+        }
+
+        openAccessibilityPrivacySettings()
+    }
+
+    @discardableResult
+    private func refreshPermissionState(prompt: Bool) -> Bool {
+        missingAccessibilityPermission = !eventTapManager.hasAccessibilityPermission(prompt: prompt)
+        missingInputMonitoringPermission = !eventTapManager.hasInputMonitoringPermission(prompt: prompt)
+
+        let previousSignature = lastLoggedPermissionSignature
+        let permissionSignature = "\(missingAccessibilityPermission)-\(missingInputMonitoringPermission)"
+        if permissionSignature != previousSignature {
+            lastLoggedPermissionSignature = permissionSignature
+            if missingAccessibilityPermission || missingInputMonitoringPermission {
+                SendControlLog.appWarning(
+                    "Required permissions missing (Accessibility=\(!missingAccessibilityPermission), InputMonitoring=\(!missingInputMonitoringPermission))."
+                )
+            } else {
+                SendControlLog.appInfo("Required permissions are granted.")
+            }
+        }
+
+        updateMenuState()
+        return !missingAccessibilityPermission && !missingInputMonitoringPermission
+    }
+
+    @discardableResult
+    private func enforceSingleRunningInstance() -> Bool {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
             return true
         }
 
-        guard let candidateBundle = Bundle(url: appURL),
-              let candidateBundleID = candidateBundle.bundleIdentifier else {
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+            .filter { $0.processIdentifier != currentPID }
+
+        guard others.isEmpty else {
+            SendControlLog.appWarning("Another Send Control instance is already running. Exiting this instance.")
+            others.first?.activate(options: [.activateIgnoringOtherApps])
+            NSApp.terminate(nil)
             return false
         }
-        return candidateBundleID == mainBundleID
+
+        return true
+    }
+
+    private func loadDesiredProtectionState() {
+        if UserDefaults.standard.object(forKey: desiredProtectionDefaultsKey) == nil {
+            desiredProtectionEnabled = true
+            saveDesiredProtectionState()
+            return
+        }
+
+        desiredProtectionEnabled = UserDefaults.standard.bool(forKey: desiredProtectionDefaultsKey)
+    }
+
+    private func saveDesiredProtectionState() {
+        UserDefaults.standard.set(desiredProtectionEnabled, forKey: desiredProtectionDefaultsKey)
+        updateMenuState()
+    }
+
+    private func startHealthCheckTimer() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = Timer.scheduledTimer(
+            withTimeInterval: healthCheckInterval,
+            repeats: true
+        ) { [weak self] _ in
+            self?.performHealthCheck()
+        }
+        if let healthCheckTimer {
+            RunLoop.main.add(healthCheckTimer, forMode: .common)
+        }
+    }
+
+    private func performHealthCheck() {
+        if !desiredProtectionEnabled {
+            if isEnabled || eventTapManager.isRunning {
+                SendControlLog.appInfo("Health check: protection disabled by preference. Stopping tap.")
+                eventTapManager.stop()
+                isEnabled = false
+            }
+            return
+        }
+
+        let tapHealthy = eventTapManager.isRunning && eventTapManager.isTapEnabledBySystem
+        if tapHealthy {
+            // Keep running even if preflight APIs transiently report false.
+            _ = refreshPermissionState(prompt: false)
+            if !isEnabled {
+                isEnabled = true
+            }
+            return
+        }
+
+        let hasPermissions = refreshPermissionState(prompt: false)
+        guard hasPermissions else {
+            if isEnabled || eventTapManager.isRunning {
+                SendControlLog.appWarning("Health check: permissions missing, forcing protection OFF.")
+                eventTapManager.stop()
+                isEnabled = false
+            }
+            return
+        }
+
+        guard pendingRetryWorkItem == nil else {
+            return
+        }
+
+        let now = Date()
+        if now.timeIntervalSince(lastAutoRestartAttemptAt) < minAutoRestartInterval {
+            return
+        }
+
+        lastAutoRestartAttemptAt = now
+        SendControlLog.appWarning("Health check detected inactive event tap. Attempting restart.")
+        startEventTapWithRetry(
+            trigger: "health-check",
+            promptForPermissions: false,
+            openSettingsOnFailure: false
+        )
+    }
+}
+
+private final class MenuHeaderToggleSwitch: NSSwitch {
+    override var acceptsFirstResponder: Bool { false }
+}
+
+private final class ProtectionHeaderMenuView: NSView {
+    var onToggle: ((Bool) -> Void)?
+
+    private let titleLabel: NSTextField = {
+        let label = NSTextField(labelWithString: "Send Control")
+        label.font = NSFont.menuFont(ofSize: 0)
+        return label
+    }()
+
+    private lazy var toggleSwitch: NSSwitch = {
+        let control = MenuHeaderToggleSwitch()
+        control.controlSize = .regular
+        control.focusRingType = .none
+        control.target = self
+        control.action = #selector(handleSwitchChanged(_:))
+        return control
+    }()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setup()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    func updateState(isOn: Bool) {
+        toggleSwitch.state = isOn ? .on : .off
+    }
+
+    @objc private func handleSwitchChanged(_ sender: NSSwitch) {
+        onToggle?(sender.state == .on)
+    }
+
+    private func setup() {
+        translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+        addSubview(toggleSwitch)
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        toggleSwitch.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 320),
+            heightAnchor.constraint(equalToConstant: 36),
+
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            toggleSwitch.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            toggleSwitch.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+
+        updateState(isOn: false)
     }
 }

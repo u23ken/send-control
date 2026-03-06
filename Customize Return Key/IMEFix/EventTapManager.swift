@@ -2,36 +2,39 @@ import AppKit
 import ApplicationServices
 
 final class EventTapManager {
-    static let targetBundleIDPrefixes: [String] = [
+    static let defaultProtectedBundleIDPrefixes: [String] = [
         "com.anthropic.claudefordesktop",
         "com.anthropic.claude",
+        "com.openai.chat",
+        "com.openai.codex",
         "com.apple.Safari",
         "com.google.Chrome",
-        "com.apple.WebKit.WebContent"
+        "com.apple.WebKit.WebContent",
+        "com.perplexity",
+        "com.facebook"
     ]
-    static let targetAppNameKeywords: [String] = [
-        "claude",
-        "safari",
-        "chrome",
-        "web content"
-    ]
+
     static let returnKeyCodes: Set<Int64> = [36, 76] // Return + keypad Enter
-    private static let logPrefix = "[IMEFix]"
     private static let passthroughModifiers: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate]
-    private static let leftShiftKeyCode: CGKeyCode = 56
     private static let syntheticEventMarker: Int64 = 0x494D454658 // "IMEFX"
+    private static let leftShiftKeyCode: Int64 = 56
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var debugEventCount = 0
-    private let maxDebugEventLogs = 20
-    private var suppressOriginalReturnKeyUp = false
+    private var swallowedReturnKeyUpCounts: [Int64: Int] = [:]
+    private lazy var syntheticEventSource: CGEventSource? = {
+        CGEventSource(stateID: .combinedSessionState)
+    }()
 
     private(set) var isRunning = false
     var onStateChanged: ((Bool) -> Void)?
-
-    private static func log(_ message: String) {
-        NSLog("%@", "\(logPrefix) \(message)")
+    var shouldRemapBundleID: ((String) -> Bool)?
+    var isTapInstalled: Bool { eventTap != nil }
+    var isTapEnabledBySystem: Bool {
+        guard let eventTap else {
+            return false
+        }
+        return CGEvent.tapIsEnabled(tap: eventTap)
     }
 
     func hasAccessibilityPermission(prompt: Bool) -> Bool {
@@ -40,7 +43,7 @@ final class EventTapManager {
             let options = [promptKey: true] as CFDictionary
             let trusted = AXIsProcessTrustedWithOptions(options)
             if !trusted {
-                Self.log("Accessibility permission is not granted.")
+                SendControlLog.eventTapWarning("Accessibility permission is not granted.")
             }
             return trusted
         }
@@ -48,9 +51,16 @@ final class EventTapManager {
         return AXIsProcessTrusted()
     }
 
+    func hasInputMonitoringPermission(prompt: Bool) -> Bool {
+        if prompt {
+            return CGRequestListenEventAccess()
+        }
+        return CGPreflightListenEventAccess()
+    }
+
     func start() {
         guard Thread.isMainThread else {
-            Self.log("start() called off main thread. Dispatching to main.")
+            SendControlLog.eventTapDebug("start() called off main thread. Dispatching to main.")
             DispatchQueue.main.async { [weak self] in
                 self?.start()
             }
@@ -64,28 +74,56 @@ final class EventTapManager {
         }
 
         guard let eventTap else {
-            Self.log("Failed to start event tap because tapCreate returned nil.")
+            SendControlLog.eventTapError("Failed to start event tap because tapCreate returned nil.")
             updateRunningState(false)
             return
         }
 
         CGEvent.tapEnable(tap: eventTap, enable: true)
-        Self.log("Event tap enabled.")
-        updateRunningState(true)
+        if CGEvent.tapIsEnabled(tap: eventTap) {
+            SendControlLog.eventTapInfo("Event tap enabled.")
+            updateRunningState(true)
+        } else {
+            SendControlLog.eventTapError("Event tap could not be enabled by system.")
+            updateRunningState(false)
+        }
     }
 
     func stop() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.stop()
+            }
+            return
+        }
+
         guard let eventTap else {
+            swallowedReturnKeyUpCounts.removeAll()
             updateRunningState(false)
             return
         }
 
         CGEvent.tapEnable(tap: eventTap, enable: false)
+        releaseTapResources()
         updateRunningState(false)
     }
 
+    func restartTap() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.restartTap()
+            }
+            return
+        }
+
+        releaseTapResources()
+        updateRunningState(false)
+        start()
+    }
+
     private func createEventTap() {
-        Self.log("Creating CGEvent tap...")
+        SendControlLog.eventTapDebug("Creating CGEvent tap.")
+        releaseTapResources()
         let keyDownMask = CGEventMask(1) << CGEventType.keyDown.rawValue
         let keyUpMask = CGEventMask(1) << CGEventType.keyUp.rawValue
         let mask = keyDownMask | keyUpMask
@@ -106,19 +144,19 @@ final class EventTapManager {
             callback: callback,
             userInfo: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         ) else {
-            Self.log("CGEvent.tapCreate failed (nil). Check Accessibility permission and app trust.")
+            SendControlLog.eventTapError("CGEvent.tapCreate failed. Check Accessibility permission and app trust.")
             return
         }
 
         eventTap = tap
-        Self.log("CGEvent.tapCreate succeeded.")
+        SendControlLog.eventTapInfo("CGEvent.tapCreate succeeded.")
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         if let runLoopSource {
             CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
             CFRunLoopWakeUp(CFRunLoopGetMain())
-            Self.log("Event tap source installed on main run loop.")
+            SendControlLog.eventTapInfo("Event tap source installed on main run loop.")
         } else {
-            Self.log("Failed to create run loop source for event tap.")
+            SendControlLog.eventTapError("Failed to create run loop source for event tap.")
         }
     }
 
@@ -127,21 +165,10 @@ final class EventTapManager {
             return Unmanaged.passUnretained(event)
         }
 
-        if type == .keyDown || type == .keyUp {
-            debugEventCount += 1
-            if debugEventCount <= maxDebugEventLogs {
-                let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-                let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown"
-                Self.log("Callback #\(debugEventCount): type=\(type.rawValue), keyCode=\(keyCode), frontmost=\(frontmost)")
-            } else if debugEventCount == maxDebugEventLogs + 1 {
-                Self.log("Callback logging limit reached. Suppressing further callback logs.")
-            }
-        }
-
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
-                Self.log("Event tap was disabled by system and has been re-enabled.")
+                SendControlLog.eventTapWarning("Event tap was disabled by system and has been re-enabled.")
             }
             return Unmanaged.passUnretained(event)
         }
@@ -155,15 +182,8 @@ final class EventTapManager {
             return Unmanaged.passUnretained(event)
         }
 
-        if type == .keyUp, suppressOriginalReturnKeyUp {
-            suppressOriginalReturnKeyUp = false
-            Self.log("Swallowed original Return keyUp (keyCode=\(keyCode)).")
-            return nil
-        }
-
-        let frontBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "(unknown)"
-        let isTarget = isTargetFrontmostApp()
-        Self.log("Return detected: frontmost=\(frontBundleID), isTarget=\(isTarget), type=\(type.rawValue), keyCode=\(keyCode)")
+        let frontBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+        let isTarget = shouldRemapBundleID?(frontBundleID) ?? isProtectedByDefault(bundleID: frontBundleID)
 
         guard isTarget else {
             return Unmanaged.passUnretained(event)
@@ -173,36 +193,50 @@ final class EventTapManager {
             return Unmanaged.passUnretained(event)
         }
 
-        if event.flags.contains(.maskShift) {
-            return Unmanaged.passUnretained(event)
-        }
-
-        if type == .keyDown {
-            if postShiftReturnSequence(keyCode: CGKeyCode(keyCode), baseFlags: event.flags) {
-                suppressOriginalReturnKeyUp = true
-                Self.log("Converted Return to Shift+Return (synthetic sequence, keyCode=\(keyCode)).")
+        if type == .keyUp {
+            if consumePendingReturnKeyUp(for: keyCode) {
+                SendControlLog.eventTapDebug("Swallowed original Return keyUp.")
                 return nil
             }
-
-            Self.log("Failed to post synthetic Shift+Return; passing original event.")
             return Unmanaged.passUnretained(event)
         }
 
-        return Unmanaged.passUnretained(event)
+        guard type == .keyDown else {
+            return Unmanaged.passUnretained(event)
+        }
+
+        let success: Bool
+        let baseFlags = event.flags.subtracting(.maskShift)
+        let isAutoRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        if event.flags.contains(.maskShift) {
+            success = postReturnSequence(keyCode: keyCode, flags: baseFlags)
+            if success {
+                SendControlLog.eventTapDebug("Converted Shift+Return to Return.")
+            }
+        } else {
+            success = postShiftReturnSequence(keyCode: keyCode, flags: baseFlags)
+            if success {
+                SendControlLog.eventTapDebug("Converted Return to Shift+Return.")
+            }
+        }
+
+        guard success else {
+            SendControlLog.eventTapWarning("Synthetic remap failed; passing original Return through.")
+            return Unmanaged.passUnretained(event)
+        }
+
+        if !isAutoRepeat {
+            markPendingReturnKeyUp(for: keyCode)
+        }
+        return nil
     }
 
-    private func isTargetFrontmostApp() -> Bool {
-        guard let frontApp = NSWorkspace.shared.frontmostApplication else {
+    private func isProtectedByDefault(bundleID: String) -> Bool {
+        guard !bundleID.isEmpty else {
             return false
         }
 
-        let bundleID = frontApp.bundleIdentifier ?? ""
-        if Self.targetBundleIDPrefixes.contains(where: { bundleID.hasPrefix($0) }) {
-            return true
-        }
-
-        let appName = (frontApp.localizedName ?? "").lowercased()
-        return Self.targetAppNameKeywords.contains(where: { appName.contains($0) })
+        return Self.defaultProtectedBundleIDPrefixes.contains(where: { bundleID.hasPrefix($0) })
     }
 
     private func updateRunningState(_ enabled: Bool) {
@@ -210,44 +244,65 @@ final class EventTapManager {
         onStateChanged?(enabled)
     }
 
-    private func postShiftReturnSequence(keyCode: CGKeyCode, baseFlags: CGEventFlags) -> Bool {
-        let preservedFlags = baseFlags.subtracting(.maskShift)
-        guard let shiftDown = makeSyntheticKeyEvent(
-            keyCode: Self.leftShiftKeyCode,
-            keyDown: true,
-            flags: preservedFlags.union(.maskShift)
-        ),
-            let returnDown = makeSyntheticKeyEvent(
-                keyCode: keyCode,
-                keyDown: true,
-                flags: preservedFlags.union(.maskShift)
-            ),
-            let returnUp = makeSyntheticKeyEvent(
-                keyCode: keyCode,
-                keyDown: false,
-                flags: preservedFlags.union(.maskShift)
-            ),
-            let shiftUp = makeSyntheticKeyEvent(
-                keyCode: Self.leftShiftKeyCode,
-                keyDown: false,
-                flags: preservedFlags
-            ) else {
+    private func markPendingReturnKeyUp(for keyCode: Int64) {
+        swallowedReturnKeyUpCounts[keyCode, default: 0] += 1
+    }
+
+    private func consumePendingReturnKeyUp(for keyCode: Int64) -> Bool {
+        guard let count = swallowedReturnKeyUpCounts[keyCode], count > 0 else {
             return false
         }
 
-        shiftDown.post(tap: .cghidEventTap)
-        returnDown.post(tap: .cghidEventTap)
-        returnUp.post(tap: .cghidEventTap)
-        shiftUp.post(tap: .cghidEventTap)
+        if count == 1 {
+            swallowedReturnKeyUpCounts.removeValue(forKey: keyCode)
+        } else {
+            swallowedReturnKeyUpCounts[keyCode] = count - 1
+        }
         return true
     }
 
-    private func makeSyntheticKeyEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags) -> CGEvent? {
-        guard let event = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: keyDown) else {
-            return nil
+    private func postShiftReturnSequence(keyCode: Int64, flags: CGEventFlags) -> Bool {
+        let returnFlags = flags.union(.maskShift)
+
+        return postSyntheticKeyEvent(keyCode: Self.leftShiftKeyCode, isKeyDown: true, flags: returnFlags)
+            && postSyntheticKeyEvent(keyCode: keyCode, isKeyDown: true, flags: returnFlags)
+            && postSyntheticKeyEvent(keyCode: keyCode, isKeyDown: false, flags: returnFlags)
+            && postSyntheticKeyEvent(keyCode: Self.leftShiftKeyCode, isKeyDown: false, flags: flags)
+    }
+
+    private func postReturnSequence(keyCode: Int64, flags: CGEventFlags) -> Bool {
+        postSyntheticKeyEvent(keyCode: keyCode, isKeyDown: true, flags: flags)
+            && postSyntheticKeyEvent(keyCode: keyCode, isKeyDown: false, flags: flags)
+    }
+
+    private func postSyntheticKeyEvent(keyCode: Int64, isKeyDown: Bool, flags: CGEventFlags) -> Bool {
+        guard let event = CGEvent(
+            keyboardEventSource: syntheticEventSource,
+            virtualKey: CGKeyCode(keyCode),
+            keyDown: isKeyDown
+        ) else {
+            SendControlLog.eventTapError("Failed to create synthetic key event.")
+            return false
         }
+
         event.flags = flags
         event.setIntegerValueField(.eventSourceUserData, value: Self.syntheticEventMarker)
-        return event
+        event.setIntegerValueField(.keyboardEventAutorepeat, value: 0)
+        event.post(tap: .cgSessionEventTap)
+        return true
+    }
+
+    private func releaseTapResources() {
+        if let runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+            self.runLoopSource = nil
+        }
+
+        if let eventTap {
+            CFMachPortInvalidate(eventTap)
+            self.eventTap = nil
+        }
+
+        swallowedReturnKeyUpCounts.removeAll()
     }
 }
