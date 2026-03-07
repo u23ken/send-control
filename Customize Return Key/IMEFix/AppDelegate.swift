@@ -502,7 +502,7 @@ private final class MenuHeaderToggleControl: NSControl {
         let cornerRadius = trackRect.height / 2
         let trackPath = NSBezierPath(roundedRect: trackRect, xRadius: cornerRadius, yRadius: cornerRadius)
         let trackColor = isOn
-            ? NSColor(calibratedRed: 0.11, green: 0.49, blue: 0.98, alpha: 1.0)
+            ? NSColor.controlAccentColor
             : NSColor(calibratedWhite: 0.82, alpha: 1.0)
         trackColor.setFill()
         trackPath.fill()
