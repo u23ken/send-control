@@ -1,5 +1,7 @@
 # Install Send Control Technical Preview
 
+Japanese INSTALL: [INSTALL.ja.md](INSTALL.ja.md)
+
 ## Scope
 
 These instructions are for the GitHub technical preview package dated 2026-03-08. This build is not notarized.
