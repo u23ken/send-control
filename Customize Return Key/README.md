@@ -1,5 +1,7 @@
 # Send Control GitHub Technical Preview
 
+Japanese README: [README.ja.md](README.ja.md)
+
 Send Control is a macOS menu bar utility that remaps Return and Shift+Return at the event-tap layer. This package is a technical preview / beta for testers who are comfortable with macOS security prompts, manual permission setup, and troubleshooting. It is not intended for general users.
 
 ## Status
