@@ -1,5 +1,7 @@
 # Send Control v1.1 Beta Release Notes
 
+Japanese RELEASE_NOTES: [RELEASE_NOTES_v1.1_beta.ja.md](RELEASE_NOTES_v1.1_beta.ja.md)
+
 Date: 2026-03-08
 
 ## Summary
