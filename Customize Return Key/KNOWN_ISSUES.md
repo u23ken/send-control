@@ -1,5 +1,7 @@
 # Known Issues
 
+Japanese KNOWN_ISSUES: [KNOWN_ISSUES.ja.md](KNOWN_ISSUES.ja.md)
+
 ## Packaging And Launch
 
 - This technical preview is not notarized. First launch requires manual Gatekeeper approval.
