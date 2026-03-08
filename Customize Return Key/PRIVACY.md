@@ -1,5 +1,7 @@
 # Send Control Privacy Notes
 
+Japanese PRIVACY: [PRIVACY.ja.md](PRIVACY.ja.md)
+
 ## What Send Control Monitors
 
 Send Control installs a macOS session event tap after you grant permission. In the current source tree, it monitors:
