@@ -1,5 +1,0 @@
-a192e4265e8a7f1a95a1f3d79ba01cdd227d8c400cefcb8ab8b187173f7de731  /Applications/IMEFix.app/Contents/MacOS/IMEFix
-865d2f1d7563ef8e8dee66208511483721588d87b46ef561f5436a00ce009da0  /Users/ken/Documents/Trush/Codex/Customize Return Key/IMEFix/AppDelegate.swift
-b12fc16314647ccf3e06cea0da8a8da853864809575794a4bda4a3599e81b9a4  /Users/ken/Documents/Trush/Codex/Customize Return Key/IMEFix/EventTapManager.swift
-ceb9605efb4a2de2349438187bd958ae5993a626f89a2adb257e4b48ce3b6416  /Users/ken/Documents/Trush/Codex/Customize Return Key/IMEFix/Info.plist
-35afa7c1a2bbae3efb60c007fb814793cd0c6229c4bdb29000a9da5d1288b70a  /Users/ken/Documents/Trush/Codex/Customize Return Key/IMEFix/main.swift
