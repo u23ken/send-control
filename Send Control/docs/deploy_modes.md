@@ -9,7 +9,7 @@
 - コマンド:
 
 ```bash
-"/Users/ken/Documents/Trush/Codex/Customize Return Key/tools/deploy_send_control.sh"
+"./tools/deploy_send_control.sh"
 ```
 
 ## トラブル復旧（初回インストール相当）
@@ -17,7 +17,7 @@
 - コマンド:
 
 ```bash
-"/Users/ken/Documents/Trush/Codex/Customize Return Key/tools/deploy_send_control.sh" --fresh-permissions
+"./tools/deploy_send_control.sh" --fresh-permissions
 ```
 
 ## 補足

@@ -17,7 +17,7 @@ NO-GO (close, but still blocked by identity/signing setup)
 Build command:
 
 ```bash
-xcodebuild -project "/Users/ken/Documents/Trush/Codex/Customize Return Key/IMEFix.xcodeproj" -scheme IMEFix -configuration Release -derivedDataPath /tmp/IMEFixDerived build
+xcodebuild -project "./IMEFix.xcodeproj" -scheme IMEFix -configuration Release -derivedDataPath /tmp/IMEFixDerived build
 ```
 
 Preflight command:
