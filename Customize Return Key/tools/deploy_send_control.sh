@@ -51,22 +51,26 @@ fi
 
 if [[ "$EUID" -ne 0 ]]; then
   relay_args=(--skip-build)
-  if [[ "$open_after_install" -eq 0 ]]; then
-    relay_args+=(--no-open)
-  fi
+  relay_args+=(--no-open)
   if [[ "$reset_permissions" -eq 1 ]]; then
     relay_args+=(--fresh-permissions)
   fi
-  exec sudo "$0" "${relay_args[@]}"
+  sudo "$0" "${relay_args[@]}"
+  if [[ "$open_after_install" -eq 1 ]]; then
+    echo "== Launching app in user session =="
+    open "$TARGET_APP_PATH"
+  fi
+  exit 0
 fi
 
-user_home="/Users/$SUDO_USER"
+user_home="/Users/${SUDO_USER:-}"
 if [[ -z "${SUDO_USER:-}" || ! -d "$user_home" ]]; then
   user_home="/Users/ken"
 fi
 
 echo "== Stopping running instances =="
 pkill -9 "Send Control" >/dev/null 2>&1 || true
+pkill -9 "SendControl" >/dev/null 2>&1 || true
 pkill -9 "IMEFix" >/dev/null 2>&1 || true
 
 echo "== Removing old app copies =="
@@ -103,12 +107,7 @@ if [[ "$reset_permissions" -eq 0 ]]; then
 fi
 
 echo "Installed: $TARGET_APP_PATH"
-stat -f "%Sm %N" -t "%Y-%m-%d %H:%M:%S" "$TARGET_APP_PATH/Contents/MacOS/Send Control"
-
-if [[ "$open_after_install" -eq 1 ]]; then
-  if [[ -n "${SUDO_USER:-}" ]]; then
-    sudo -u "$SUDO_USER" open "$TARGET_APP_PATH"
-  else
-    open "$TARGET_APP_PATH"
-  fi
-fi
+stat -f "%Sm %N" -t "%Y-%m-%d %H:%M:%S" "$TARGET_APP_PATH/Contents/MacOS/SendControl"
+/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$TARGET_APP_PATH/Contents/Info.plist" | sed 's/^/bundle_identifier:/'
+/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$TARGET_APP_PATH/Contents/Info.plist" | sed 's/^/marketing_version:/'
+/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$TARGET_APP_PATH/Contents/Info.plist" | sed 's/^/build_number:/'

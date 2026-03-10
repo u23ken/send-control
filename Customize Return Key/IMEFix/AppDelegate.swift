@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTapManager = EventTapManager()
@@ -465,23 +466,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 private final class MenuHeaderToggleControl: NSControl {
+    private static let animationDuration: TimeInterval = 0.18
+
     override var acceptsFirstResponder: Bool { false }
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: 38, height: 22)
     }
 
+    @objc dynamic private var animationProgress: CGFloat = 0 {
+        didSet { needsDisplay = true }
+    }
+
     var isOn = false {
         didSet {
             guard oldValue != isOn else { return }
-            needsDisplay = true
+            let targetProgress: CGFloat = isOn ? 1 : 0
+            guard window != nil else {
+                animationProgress = targetProgress
+                return
+            }
+
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Self.animationDuration
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                animator().animationProgress = targetProgress
+            }
         }
+    }
+
+    override class func defaultAnimation(forKey key: NSAnimatablePropertyKey) -> Any? {
+        if key == "animationProgress" {
+            return CABasicAnimation()
+        }
+        return super.defaultAnimation(forKey: key)
     }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         focusRingType = .none
         wantsLayer = true
+        animationProgress = 0
     }
 
     @available(*, unavailable)
@@ -489,6 +514,12 @@ private final class MenuHeaderToggleControl: NSControl {
         super.init(coder: coder)
         focusRingType = .none
         wantsLayer = true
+        animationProgress = 0
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        animationProgress = isOn ? 1 : 0
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
@@ -501,23 +532,24 @@ private final class MenuHeaderToggleControl: NSControl {
         let trackRect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let cornerRadius = trackRect.height / 2
         let trackPath = NSBezierPath(roundedRect: trackRect, xRadius: cornerRadius, yRadius: cornerRadius)
-        let trackColor = isOn
-            ? NSColor.controlAccentColor
-            : NSColor(calibratedWhite: 0.82, alpha: 1.0)
+        let offTrackColor = NSColor(calibratedWhite: 0.82, alpha: 1.0)
+        let onTrackColor = NSColor.controlAccentColor
+        let trackColor = offTrackColor.blended(withFraction: animationProgress, of: onTrackColor) ?? onTrackColor
         trackColor.setFill()
         trackPath.fill()
 
-        if !isOn {
-            NSColor(calibratedWhite: 0.72, alpha: 1.0).setStroke()
+        let strokeAlpha = max(0, 1 - animationProgress)
+        if strokeAlpha > 0.001 {
+            NSColor(calibratedWhite: 0.72, alpha: strokeAlpha).setStroke()
             trackPath.lineWidth = 1
             trackPath.stroke()
         }
 
         let thumbInset: CGFloat = 2
         let thumbDiameter = trackRect.height - (thumbInset * 2)
-        let thumbX = isOn
-            ? trackRect.maxX - thumbInset - thumbDiameter
-            : trackRect.minX + thumbInset
+        let minThumbX = trackRect.minX + thumbInset
+        let maxThumbX = trackRect.maxX - thumbInset - thumbDiameter
+        let thumbX = minThumbX + ((maxThumbX - minThumbX) * animationProgress)
         let thumbRect = NSRect(
             x: thumbX,
             y: trackRect.minY + thumbInset,

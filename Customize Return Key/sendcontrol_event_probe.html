@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>probe:waiting</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 24px;
+      line-height: 1.4;
+    }
+
+    textarea {
+      width: 560px;
+      height: 160px;
+      font: 16px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    pre {
+      margin-top: 16px;
+      padding: 12px;
+      background: #f4f4f4;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Send Control Event Probe</h1>
+  <p>Focus stays in the textarea. The last keydown is mirrored below and into the document title.</p>
+  <textarea id="probe" autofocus></textarea>
+  <pre id="output">waiting</pre>
+  <script>
+    const probe = document.getElementById("probe");
+    const output = document.getElementById("output");
+
+    function render(event) {
+      const summary = [
+        `key=${event.key}`,
+        `code=${event.code}`,
+        `shift=${event.shiftKey}`,
+        `ctrl=${event.ctrlKey}`,
+        `alt=${event.altKey}`,
+        `meta=${event.metaKey}`
+      ].join(" ");
+      output.textContent = summary;
+      document.title = `probe:${summary}`;
+      document.body.dataset.lastEvent = summary;
+    }
+
+    window.addEventListener("load", () => probe.focus());
+    probe.addEventListener("keydown", (event) => {
+      render(event);
+    });
+  </script>
+</body>
+</html>

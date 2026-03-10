@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/IMEFix.xcodeproj"
 DERIVED_DATA_PATH="/tmp/IMEFixDerived"
 APP_PATH="$DERIVED_DATA_PATH/Build/Products/Release/Send Control.app"
-BIN_PATH="$APP_PATH/Contents/MacOS/Send Control"
+BIN_PATH="$APP_PATH/Contents/MacOS/SendControl"
 
 fail_count=0
 
