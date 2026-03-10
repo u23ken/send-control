@@ -16,8 +16,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A00000000000000000000004"
                BuildableName = "Send Control.app"
-               BlueprintName = "IMEFix"
-               ReferencedContainer = "container:IMEFix.xcodeproj">
+               BlueprintName = "Send Control"
+               ReferencedContainer = "container:Send Control.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,8 +46,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A00000000000000000000004"
             BuildableName = "Send Control.app"
-            BlueprintName = "IMEFix"
-            ReferencedContainer = "container:IMEFix.xcodeproj">
+            BlueprintName = "Send Control"
+            ReferencedContainer = "container:Send Control.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -63,8 +63,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A00000000000000000000004"
             BuildableName = "Send Control.app"
-            BlueprintName = "IMEFix"
-            ReferencedContainer = "container:IMEFix.xcodeproj">
+            BlueprintName = "Send Control"
+            ReferencedContainer = "container:Send Control.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

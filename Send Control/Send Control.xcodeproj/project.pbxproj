@@ -47,7 +47,7 @@
 		A00000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
-				A0000000000000000000000B /* IMEFix */,
+				A0000000000000000000000B /* Send Control */,
 				A00000000000000000000019 /* Frameworks */,
 				A00000000000000000000003 /* Products */,
 			);
@@ -61,7 +61,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-			A0000000000000000000000B /* IMEFix */ = {
+			A0000000000000000000000B /* Send Control */ = {
 				isa = PBXGroup;
 				children = (
 					A0000000000000000000001A /* main.swift */,
@@ -73,7 +73,7 @@
 					A00000000000000000000022 /* MenuBarIconTemplate.png */,
 					A00000000000000000000008 /* Info.plist */,
 				);
-				path = IMEFix;
+				path = "Send Control";
 				sourceTree = "<group>";
 		};
 		A00000000000000000000019 /* Frameworks */ = {
@@ -88,9 +88,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A00000000000000000000004 /* IMEFix */ = {
+		A00000000000000000000004 /* Send Control */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A00000000000000000000014 /* Build configuration list for PBXNativeTarget "IMEFix" */;
+			buildConfigurationList = A00000000000000000000014 /* Build configuration list for PBXNativeTarget "Send Control" */;
 			buildPhases = (
 				A00000000000000000000010 /* Sources */,
 				A00000000000000000000011 /* Frameworks */,
@@ -100,7 +100,7 @@
 			);
 			dependencies = (
 			);
-			name = IMEFix;
+			name = "Send Control";
 			productName = "Send Control";
 			productReference = A00000000000000000000005 /* Send Control.app */;
 			productType = "com.apple.product-type.application";
@@ -120,7 +120,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A00000000000000000000013 /* Build configuration list for PBXProject "IMEFix" */;
+			buildConfigurationList = A00000000000000000000013 /* Build configuration list for PBXProject "Send Control" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -133,7 +133,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A00000000000000000000004 /* IMEFix */,
+				A00000000000000000000004 /* Send Control */,
 			);
 		};
 /* End PBXProject section */
@@ -197,21 +197,21 @@
 			A00000000000000000000017 /* Debug */ = {
 				isa = XCBuildConfiguration;
 				buildSettings = {
-					CODE_SIGN_ENTITLEMENTS = IMEFix/SendControl.entitlements;
+					CODE_SIGN_ENTITLEMENTS = "Send Control/SendControl.entitlements";
 					CODE_SIGN_IDENTITY = "-";
 					CODE_SIGNING_ALLOWED = YES;
 					CODE_SIGN_STYLE = Manual;
-					CURRENT_PROJECT_VERSION = 132;
+					CURRENT_PROJECT_VERSION = 133;
 					EXECUTABLE_NAME = SendControl;
 					ENABLE_HARDENED_RUNTIME = YES;
 					GENERATE_INFOPLIST_FILE = NO;
-					INFOPLIST_FILE = IMEFix/Info.plist;
+					INFOPLIST_FILE = "Send Control/Info.plist";
 					LD_RUNPATH_SEARCH_PATHS = (
 						"$(inherited)",
 						"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-					MARKETING_VERSION = 1.2.12;
+					MARKETING_VERSION = 1.2.13;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sendcontrol.app;
 				PRODUCT_NAME = "Send Control";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -222,21 +222,21 @@
 			A00000000000000000000018 /* Release */ = {
 				isa = XCBuildConfiguration;
 				buildSettings = {
-					CODE_SIGN_ENTITLEMENTS = IMEFix/SendControl.entitlements;
+					CODE_SIGN_ENTITLEMENTS = "Send Control/SendControl.entitlements";
 					CODE_SIGN_IDENTITY = "-";
 					CODE_SIGNING_ALLOWED = YES;
 					CODE_SIGN_STYLE = Manual;
-					CURRENT_PROJECT_VERSION = 132;
+					CURRENT_PROJECT_VERSION = 133;
 					EXECUTABLE_NAME = SendControl;
 					ENABLE_HARDENED_RUNTIME = YES;
 					GENERATE_INFOPLIST_FILE = NO;
-					INFOPLIST_FILE = IMEFix/Info.plist;
+					INFOPLIST_FILE = "Send Control/Info.plist";
 					LD_RUNPATH_SEARCH_PATHS = (
 						"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-					MARKETING_VERSION = 1.2.12;
+					MARKETING_VERSION = 1.2.13;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sendcontrol.app;
 				PRODUCT_NAME = "Send Control";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -248,7 +248,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A00000000000000000000013 /* Build configuration list for PBXProject "IMEFix" */ = {
+		A00000000000000000000013 /* Build configuration list for PBXProject "Send Control" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A00000000000000000000015 /* Debug */,
@@ -257,7 +257,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A00000000000000000000014 /* Build configuration list for PBXNativeTarget "IMEFix" */ = {
+		A00000000000000000000014 /* Build configuration list for PBXNativeTarget "Send Control" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A00000000000000000000017 /* Debug */,

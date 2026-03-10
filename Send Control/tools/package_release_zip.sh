@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_PATH="$ROOT_DIR/IMEFix.xcodeproj"
-SCHEME_NAME="IMEFix"
+PROJECT_PATH="$ROOT_DIR/Send Control.xcodeproj"
+SCHEME_NAME="Send Control"
 DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-/tmp/SendControlReleaseAsset}"
 APP_PATH="$DERIVED_DATA_PATH/Build/Products/Release/Send Control.app"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$ROOT_DIR/dist/release}"

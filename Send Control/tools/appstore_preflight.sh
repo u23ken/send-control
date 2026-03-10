@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_PATH="$ROOT_DIR/IMEFix.xcodeproj"
-DERIVED_DATA_PATH="/tmp/IMEFixDerived"
+PROJECT_PATH="$ROOT_DIR/Send Control.xcodeproj"
+DERIVED_DATA_PATH="/tmp/SendControlDerived"
 APP_PATH="$DERIVED_DATA_PATH/Build/Products/Release/Send Control.app"
 BIN_PATH="$APP_PATH/Contents/MacOS/SendControl"
 
@@ -21,7 +21,7 @@ fail() {
 echo "== Build =="
 xcodebuild \
   -project "$PROJECT_PATH" \
-  -scheme IMEFix \
+  -scheme "Send Control" \
   -configuration Release \
   -derivedDataPath "$DERIVED_DATA_PATH" \
   build >/tmp/sendcontrol_preflight_build.log 2>&1 || {
