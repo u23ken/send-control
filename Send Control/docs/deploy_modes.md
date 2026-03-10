@@ -23,3 +23,18 @@
 ## 補足
 - スクリプトは毎回、古い `Send Control.app` / `IMEFix.app` のコピーを削除してから再配置する
 - `--fresh-permissions` のときだけ TCC（Accessibility / ListenEvent）をリセットする
+
+## GitHub 公開用 zip の作り方
+- 公開用 asset は次で作る:
+
+```bash
+"./tools/package_release_zip.sh"
+```
+
+- この script は次をまとめて行う:
+  - 通常の Release build
+  - app bundle の署名整合性確認
+  - zip 化
+  - 展開後の再確認
+
+- `CODE_SIGNING_ALLOWED=NO` で作った build から zip を作らない

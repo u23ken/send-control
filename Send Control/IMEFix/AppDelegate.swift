@@ -264,8 +264,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         saveDesiredProtectionState()
 
         if userInitiated {
-            // Avoid repeated macOS permission prompt loops.
-            let hasPermissions = refreshPermissionState(prompt: false)
+            // Only prompt when the user explicitly asks to turn protection ON.
+            let hasPermissions = refreshPermissionState(prompt: true)
             if !hasPermissions {
                 openMissingPermissionSettings()
                 SendControlLog.appWarning("Cannot turn ON yet because required permissions are missing.")
@@ -277,8 +277,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         startEventTapWithRetry(
             trigger: trigger,
-            promptForPermissions: false,
-            openSettingsOnFailure: false
+            promptForPermissions: userInitiated,
+            openSettingsOnFailure: userInitiated
         )
     }
 

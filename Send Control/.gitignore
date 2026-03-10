@@ -1,5 +1,6 @@
 # Local build output
 DerivedData/
+dist/
 
 # macOS finder metadata
 .DS_Store
